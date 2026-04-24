@@ -81,7 +81,6 @@ pub(crate) struct ObjectResponse(pub Vec<SignedObject>);
 pub(crate) async fn new(
     id_keys: identity::Keypair,
     is_bootstrap: bool,
-    bootstrap_addr: Ipv4Addr
 ) -> Result<Client, Box<dyn Error + Send + Sync>> {
     let peer_id = id_keys.public().to_peer_id();
 
@@ -123,26 +122,13 @@ pub(crate) async fn new(
 
     if is_bootstrap {
         swarm.listen_on("/ip4/0.0.0.0/tcp/22137".parse()?)?;
+        info!("Bootstrap node!");
     }
 
     swarm
         .behaviour_mut()
         .kademlia
         .set_mode(Some(kad::Mode::Server));
-
-    if !is_bootstrap {
-        let bootstrap_id: PeerId = "12D3KooWPjceQrSwdWXPyLLeABRXmuqt69Rg3sBYbU1Nft9HyQ6X"
-            .parse()
-            .unwrap();
-        let bootstrap_addr: Multiaddr = format!("/ip4/{}/tcp/22137", bootstrap_addr.to_string()).parse()?;
-
-        swarm.behaviour_mut().kademlia.add_address(
-            &bootstrap_id,
-            bootstrap_addr.clone().with(Protocol::P2p(bootstrap_id)),
-        );
-    } else {
-        info!("Bootstrap node!");
-    }
 
     info!("Started node");
 
@@ -181,7 +167,21 @@ impl Client {
         Ok(())
     }
 
-    pub(crate) async fn bootstrap(&self) -> Result<(), Box<dyn Error + Send + Sync>> {
+    pub(crate) async fn bootstrap(&self, addr: Ipv4Addr) -> Result<(), Box<dyn Error + Send + Sync>> {
+        let bootstrap_id: PeerId = "12D3KooWPjceQrSwdWXPyLLeABRXmuqt69Rg3sBYbU1Nft9HyQ6X"
+            .parse()
+            .unwrap();
+        let bootstrap_addr: Multiaddr = format!("/ip4/{}/tcp/22137", addr.to_string()).parse()?;
+
+        self.dial(bootstrap_id, bootstrap_addr.clone()).await?;
+
+        self.register(move |swarm| {
+            swarm.behaviour_mut().kademlia.add_address(
+                &bootstrap_id,
+                bootstrap_addr.clone().with(Protocol::P2p(bootstrap_id)),
+            );
+        }).await?;
+        
         let _ = subscribe!(_ => SwarmEvent::Behaviour(BehaviourEvent::Kademlia(
             kad::Event::OutboundQueryProgressed {
                 result: kad::QueryResult::Bootstrap(Ok(_)),
