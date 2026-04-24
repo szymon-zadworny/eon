@@ -77,15 +77,18 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
 
     info!("My id: {peer_id}");
 
-    let bootstrap_addr = opt.bootstrap_addr
-        .unwrap_or(Ipv4Addr::new(127, 0, 0, 1));
-
     let network_client =
-        network::new(keypair, opt.bootstrap_mode, bootstrap_addr).await?;
+        network::new(keypair, opt.bootstrap_mode).await?;
 
     if !opt.bootstrap_mode {
-        network_client.bootstrap().await?;
-        event!(Level::INFO, "Finished bootstrapping.");
+        let bootstrap_addr = opt.bootstrap_addr
+            .unwrap_or(Ipv4Addr::new(127, 0, 0, 1));
+        if let Ok(_) = network_client.bootstrap(bootstrap_addr).await {
+            event!(Level::INFO, "Bootstrap complete");
+        }
+        else {
+            event!(Level::ERROR, "Bootstrap fail!");
+        }
     }
 
     let mut app = AppCli::new(network_client);
