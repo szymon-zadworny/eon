@@ -83,12 +83,13 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     if !opt.bootstrap_mode {
         let bootstrap_addr = opt.bootstrap_addr
             .unwrap_or(Ipv4Addr::new(127, 0, 0, 1));
-        if let Ok(_) = network_client.bootstrap(bootstrap_addr).await {
-            event!(Level::INFO, "Bootstrap complete");
-        }
-        else {
+
+        while let Err(_) = network_client.bootstrap(bootstrap_addr).await {
             event!(Level::ERROR, "Bootstrap fail!");
+            tokio::time::sleep(Duration::from_secs(1)).await;
         }
+        
+        event!(Level::INFO, "Bootstrap complete");
     }
 
     let mut app = AppCli::new(network_client);
