@@ -1,5 +1,5 @@
 use std::{
-    collections::{hash_map, HashMap, HashSet}, error::Error, net::Ipv4Addr, time::Duration
+    collections::{HashMap, HashSet, hash_map}, error::Error, net::{IpAddr, Ipv4Addr}, time::Duration
 };
 
 use futures::{prelude::*, stream::FuturesUnordered, StreamExt};
@@ -24,6 +24,8 @@ use objects::system::Hash;
 use libp2p_invert::{event_subscriber, swarm_client};
 
 use libp2p::kad::{QueryId, store::RecordStore};
+
+use getifaddrs::{getifaddrs, InterfaceFlags};
 
 #[derive(NetworkBehaviour)]
 pub(crate) struct Behaviour {
@@ -120,15 +122,15 @@ pub(crate) async fn new(
         .with_swarm_config(|c| c.with_idle_connection_timeout(Duration::from_secs(60)))
         .build();
 
-    if is_bootstrap {
-        swarm.listen_on("/ip4/0.0.0.0/tcp/22137".parse()?)?;
-        info!("Bootstrap node!");
+    let mut ip_addr = IpAddr::V4(Ipv4Addr::UNSPECIFIED);
+    for interface in getifaddrs()? {
+        if interface.name == "eth0" {
+            ip_addr = interface.address.ip_addr().unwrap();
+        }
     }
 
-    swarm
-        .behaviour_mut()
-        .kademlia
-        .set_mode(Some(kad::Mode::Server));
+    let port = if is_bootstrap { 22137 } else { 0 };
+    swarm.listen_on(format!("/ip4/{ip_addr}/tcp/{port}").parse()?)?;
 
     info!("Started node");
 
@@ -146,6 +148,19 @@ pub(crate) struct Client {
     keys: identity::Keypair,
 }
 
+fn is_loopback(addr: &Multiaddr) -> bool {
+    for proto in addr.iter() {
+        if let Protocol::Ip4(raw_addr) = proto && raw_addr.is_loopback() {
+            return true
+        } 
+        else if let Protocol::Ip6(raw_addr) = proto && raw_addr.is_loopback() {
+            return true
+        }
+    }
+
+    false
+}
+
 #[event_subscriber(Behaviour)]
 impl Client {
     pub(crate) async fn on_identify_received(&self) -> Result<(), Box<dyn Error + Send + Sync>> {
@@ -154,8 +169,13 @@ impl Client {
         )))
         .await?;
 
+        event!(Level::INFO, "Identify received!");
         self.register(move |swarm| {
             for addr in info.listen_addrs {
+                if is_loopback(&addr) {
+                    continue
+                }
+                
                 event!(
                     Level::INFO,
                     "Found new listen addr: {addr} for peer: {peer_id}"
@@ -164,6 +184,20 @@ impl Client {
             }
         }).await?;
 
+        Ok(())
+    }
+
+    pub(crate) async fn on_new_listen_addr(&self) -> Result<(), Box<dyn Error + Send + Sync>> {
+        let (id, address) = subscribe!(_ => SwarmEvent::NewListenAddr { listener_id, address }).await?;
+        event!(Level::INFO, "New listen address: {address}");
+        if !is_loopback(&address) {
+            self.register(move |swarm| {
+                swarm.add_external_address(address);
+            }).await?;
+        }
+        else {
+            event!(Level::INFO, "Loopback detected: ignoring listening address");
+        }
         Ok(())
     }
 

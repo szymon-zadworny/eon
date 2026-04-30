@@ -81,6 +81,8 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         network::new(keypair, opt.bootstrap_mode).await?;
 
     if !opt.bootstrap_mode {
+        network_client.on_new_listen_addr().await?;
+
         let bootstrap_addr = opt.bootstrap_addr
             .unwrap_or(Ipv4Addr::new(127, 0, 0, 1));
 

@@ -40,6 +40,7 @@ impl AppController {
             tokio::select! {
                 //Some(event) = self.network_events.next() => self.handle_event(event).await.unwrap(),
                 Ok(_) = self.network_client.on_identify_received() => { },
+                Ok(_) = self.network_client.on_new_listen_addr() => { },
                 Ok((rpc, channel)) = self.network_client.on_object_request() => {
                     event!(Level::INFO, "Responding to request.");
 
