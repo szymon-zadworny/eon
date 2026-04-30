@@ -849,6 +849,7 @@ dependencies = [
  "clap",
  "dirs",
  "futures",
+ "getifaddrs",
  "heck",
  "humantime",
  "humantime-serde",
@@ -1073,6 +1074,17 @@ checksum = "85649ca51fd72272d7821adaf274ad91c288277713d9c18820d8499a7ff69e9a"
 dependencies = [
  "typenum",
  "version_check",
+]
+
+[[package]]
+name = "getifaddrs"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "802c6e75f730346652928a55c200ca680741aaaa60c4973d52a999f520c4fde4"
+dependencies = [
+ "bitflags",
+ "libc",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -4025,6 +4037,15 @@ name = "windows-sys"
 version = "0.52.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "282be5f36a8ce781fad8c8ae18fa3f9beff57ec1b52cb3de0789201425d9a33d"
+dependencies = [
+ "windows-targets 0.52.6",
+]
+
+[[package]]
+name = "windows-sys"
+version = "0.59.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1e38bc4d79ed67fd075bcc251a1c39b32a1776bbe92e5bef1f0bf1f8c531853b"
 dependencies = [
  "windows-targets 0.52.6",
 ]

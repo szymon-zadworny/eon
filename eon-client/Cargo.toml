@@ -35,3 +35,4 @@ serde_with = { version = "3.14.1", features = ["base64"] }
 humantime-serde = "1.1.1"
 serde_yaml = "0.9.34"
 rand = "0.9.2"
+getifaddrs = "0.6.1"
