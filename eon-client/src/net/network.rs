@@ -125,7 +125,9 @@ pub(crate) async fn new(
     let mut ip_addr = IpAddr::V4(Ipv4Addr::UNSPECIFIED);
     for interface in getifaddrs()? {
         if interface.name == "eth0" {
-            ip_addr = interface.address.ip_addr().unwrap();
+            if let Some(addr) = interface.address.ip_addr() {
+                ip_addr = addr;
+            }
         }
     }
 
